@@ -2,13 +2,13 @@
 
 ## Phase 1: Project Setup
 - [x] Initialize Git repository
-- [ ] Set up project structure
-- [ ] Create basic plugin files
-  - [ ] `plugin.toml` - Plugin metadata
-  - [ ] `commands` - Main plugin commands
-  - [ ] `functions` - Core functions
-  - [ ] `tests` - Test directory
-- [ ] Add README.md with basic usage
+- [x] Set up project structure
+- [x] Create basic plugin files
+  - [x] `plugin.toml` - Plugin metadata
+  - [x] `commands` - Main plugin commands
+  - [x] `functions` - Core functions
+  - [x] `tests` - Test directory
+- [x] Add README.md with basic usage
 
 ## Phase 2: Core Functionality
 

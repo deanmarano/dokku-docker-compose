@@ -14,7 +14,41 @@ repository = "https://github.com/deanmarano/dokku-docker-compose/issues"
 # The minimum Dokku version required
 [dependencies]
 core = ">= 0.30.0"
-# Commands provided by this plugin
+
+# Plugin installation and initialization
+[installation]
+# Commands to run after plugin installation
+post_install = """
+  # Create required directories
+  mkdir -p "$PLUGIN_ENABLED_PATH"
+  
+  # Set up logging
+  mkdir -p "$PLUGIN_DATA_ROOT/logs"
+  touch "$PLUGIN_DATA_ROOT/logs/plugin.log"
+  chmod 666 "$PLUGIN_DATA_ROOT/logs/plugin.log"
+  
+  # Set up configuration
+  mkdir -p "$PLUGIN_DATA_ROOT/config"
+  touch "$PLUGIN_DATA_ROOT/config/config"
+  
+  # Set proper permissions
+  chown -R dokku:dokku "$PLUGIN_DATA_ROOT"
+  chmod -R 755 "$PLUGIN_DATA_ROOT"
+"""
+
+# Plugin hooks
+[hooks]
+# Run when the plugin is installed
+install = "source $PLUGIN_PATH/core-plugins/available/common/functions && source $PLUGIN_PATH/commands && plugin_install"
+
+# Plugin commands
 [commands]
 # The main command that will be executed when running `dokku docker-compose`
 docker-compose = "/var/lib/dokku/plugins/available/docker-compose/commands"
+
+# Plugin configuration
+[config]
+# Default configuration values
+DOKKU_DOCKER_COMPOSE_LOG_LEVEL = "info"
+DOKKU_DOCKER_COMPOSE_MAX_RETRIES = "3"
+DOKKU_DOCKER_COMPOSE_TIMEOUT = "300"

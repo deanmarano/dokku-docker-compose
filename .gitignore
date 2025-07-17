@@ -1,0 +1,63 @@
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Dependency directories
+node_modules/
+vendor/
+
+# Log files
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Test artifacts
+/test/tmp/
+/test/run/
+/test/log/
+/test/plugin/
+/test/dokku/plugins/
+/test/dokku/data/
+/test/dokku/home/
+/test/dokku/tmp/
+
+# Local development
+.env
+.env.local
+
+# Coverage reports
+coverage/
+.coveralls.yml
+
+# Build artifacts
+dist/
+build/
+*.gem
+*.rpm
+*.deb
+
+# Dokku specific
+.dokku/
+
+# Temporary files
+/tmp/
+
+# Local configuration
+config.local
+
+# BATS test framework
+/test_helper/
+
+# Plugin specific
+/var/
+/data/

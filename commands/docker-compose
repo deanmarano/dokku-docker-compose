@@ -4,66 +4,104 @@
 set -eo pipefail
 [[ $DOKKU_TRACE ]] && set -x
 
+# Set plugin paths
+PLUGIN_NAME="docker-compose"
+PLUGIN_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PLUGIN_ENABLED_PATH="/var/lib/dokku/plugins/available/$PLUGIN_NAME"
+PLUGIN_DATA_ROOT="/var/lib/dokku/data/$PLUGIN_NAME"
+PLUGIN_CONFIG_FILE="$PLUGIN_DATA_ROOT/config/config"
+PLUGIN_LOG_FILE="$PLUGIN_DATA_ROOT/logs/plugin.log"
+
 # Import common functions
-source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+source "$PLUGIN_PATH/functions/core"
+
+# Initialize plugin if needed
+initialize_plugin() {
+  # Create required directories if they don't exist
+  mkdir -p "$PLUGIN_DATA_ROOT/logs"
+  mkdir -p "$PLUGIN_DATA_ROOT/config"
+  
+  # Initialize log file if it doesn't exist
+  touch "$PLUGIN_LOG_FILE"
+  chmod 666 "$PLUGIN_LOG_FILE"
+  
+  # Initialize config file if it doesn't exist
+  if [[ ! -f "$PLUGIN_CONFIG_FILE" ]]; then
+    touch "$PLUGIN_CONFIG_FILE"
+    chmod 600 "$PLUGIN_CONFIG_FILE"
+    # Set default configuration
+    echo "DOKKU_DOCKER_COMPOSE_LOG_LEVEL=info" > "$PLUGIN_CONFIG_FILE"
+    echo "DOKKU_DOCKER_COMPOSE_MAX_RETRIES=3" >> "$PLUGIN_CONFIG_FILE"
+    echo "DOKKU_DOCKER_COMPOSE_TIMEOUT=300" >> "$PLUGIN_CONFIG_FILE"
+  fi
+  
+  # Load configuration
+  source "$PLUGIN_CONFIG_FILE"
+}
+
+# Plugin installation
+plugin_install() {
+  log_info "Installing $PLUGIN_NAME plugin..."
+  
+  # Create plugin directory structure
+  mkdir -p "$PLUGIN_ENABLED_PATH"
+  
+  # Set up logging
+  mkdir -p "$PLUGIN_DATA_ROOT/logs"
+  touch "$PLUGIN_LOG_FILE"
+  chmod 666 "$PLUGIN_LOG_FILE"
+  
+  # Set up configuration
+  mkdir -p "$PLUGIN_DATA_ROOT/config"
+  touch "$PLUGIN_CONFIG_FILE"
+  chmod 600 "$PLUGIN_CONFIG_FILE"
+  
+  # Set proper permissions
+  chown -R dokku:dokku "$PLUGIN_DATA_ROOT"
+  chmod -R 755 "$PLUGIN_DATA_ROOT"
+  
+  log_success "$PLUGIN_NAME plugin installed successfully"
+}
 
 # Show help if no arguments are provided
 if [[ $# -eq 0 ]]; then
-  cat <<EOF
-Usage: dokku docker-compose:COMMAND
-
-Import docker-compose.yml files into Dokku.
-
-Additional commands:
-dokku docker-compose:help      Print this help message
-dokku docker-compose:version   Show version information
-EOF
+  show_help
   exit 0
 fi
+
+# Initialize the plugin
+initialize_plugin
 
 # Parse command line arguments
 case "$1" in
   help|--help|-h)
-    cat <<EOF
-Usage: dokku docker-compose:COMMAND
-
-Manage Docker Compose deployments in Dokku.
-
-Commands:
-  dokku docker-compose:import [path]  Import a docker-compose.yml file
-  dokku docker-compose:help           Show this help message
-  dokku docker-compose:version        Show version information
-
-Options:
-  --file, -f    Specify an alternate compose file (default: docker-compose.yml)
-  --project, -p Specify an alternate project name (default: directory name)
-  --dry-run     Show what would be created without making changes
-  --verbose, -v Increase verbosity
-
-Examples:
-  # Import default docker-compose.yml in current directory
-  dokku docker-compose:import
-
-  # Import specific compose file
-  dokku docker-compose:import -f docker-compose.prod.yml
-
-  # Dry run to see what would be created
-  dokku docker-compose:import --dry-run
-EOF
+    show_help
     ;;
-
+    
   version|--version|-v)
-    echo "dokku-docker-compose version $(cat "$(dirname "$0")/../VERSION" 2>/dev/null || echo 'unknown')"
+    show_version
     ;;
-
+    
   import|--import)
     shift
     # Import logic will be implemented in the import command
-    echo "Import functionality coming soon!"
+    log_info "Import functionality coming soon!"
     ;;
-
+    
+  # Plugin management commands
+  plugin:install)
+    plugin_install
+    ;;
+    
+  plugin:uninstall)
+    log_info "Uninstalling $PLUGIN_NAME plugin..."
+    # Add cleanup logic here
+    log_success "$PLUGIN_NAME plugin uninstalled successfully"
+    ;;
+    
   *)
-    echo "Unknown command: $1"
+    log_fail "Unknown command: $1"
+    show_help
     exit 1
     ;;
 esac
