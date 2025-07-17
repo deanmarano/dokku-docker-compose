@@ -1,0 +1,20 @@
+[plugin]
+# The name of the plugin
+name = "docker-compose"
+# The version of the plugin
+version = "0.1.0"
+# A short description of the plugin
+description = "Import docker-compose.yml files into Dokku"
+# The author of the plugin
+author = "Dean Marano"
+# The URL of the plugin's documentation
+documentation = "https://github.com/deanmarano/dokku-docker-compose"
+# The URL of the plugin's issue tracker
+repository = "https://github.com/deanmarano/dokku-docker-compose/issues"
+# The minimum Dokku version required
+[dependencies]
+core = ">= 0.30.0"
+# Commands provided by this plugin
+[commands]
+# The main command that will be executed when running `dokku docker-compose`
+docker-compose = "/var/lib/dokku/plugins/available/docker-compose/commands"

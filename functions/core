@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+# Core functions for the docker-compose plugin
+
+# Set strict mode
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Import dokku functions
+if [[ -f "/var/lib/dokku/core-plugins/available/common/functions" ]]; then
+  source /var/lib/dokku/core-plugins/available/common/functions
+fi
+
+# Logging functions
+log() {
+  echo "$@" >&2
+}
+
+error() {
+  log " !     $*" >&2
+  exit 1
+}
+
+warn() {
+  log " !     WARNING: $*" >&2
+}
+
+info() {
+  [[ $QUIET ]] || log "-----> $*"
+}
+
+# Version checking
+check_dokku_version() {
+  local required_version="${1:-0.30.0}"
+  local current_version
+  current_version=$(dokku --version | head -n 1 | cut -d' ' -f3)
+  
+  if [[ "$(printf "%s\n%s" "$required_version" "$current_version" | sort -V | head -n1)" != "$required_version" ]]; then
+    error "Dokku version $required_version or higher is required. Current version: $current_version"
+  fi
+}
+
+# Argument parsing
+parse_args() {
+  local args=("$@")
+  local i=0
+  
+  while [[ $i -lt ${#args[@]} ]]; do
+    case "${args[$i]}" in
+      -f|--file)
+        ((i++))
+        COMPOSE_FILE="${args[$i]}"
+        ;;
+      -p|--project)
+        ((i++))
+        PROJECT_NAME="${args[$i]}"
+        ;;
+      --dry-run)
+        DRY_RUN=true
+        ;;
+      -v|--verbose)
+        set -x
+        ;;
+      -q|--quiet)
+        QUIET=true
+        ;;
+      *)
+        # Handle non-flag arguments
+        if [[ -z "$COMMAND" ]]; then
+          COMMAND="${args[$i]}"
+        else
+          error "Unknown argument: ${args[$i]}"
+        fi
+        ;;
+    esac
+    ((i++))
+  done
+}
+
+# Check if a command exists
+command_exists() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# Check if a file exists and is readable
+file_exists() {
+  [[ -r "$1" ]]
+}
+
+# Get the project directory
+get_project_dir() {
+  echo "${DOKKU_DOCKER_COMPOSE_PROJECT_DIR:-$(pwd)}"
+}
+
+# Get the compose file path
+get_compose_file() {
+  local project_dir="$(get_project_dir)"
+  echo "${COMPOSE_FILE:-${project_dir}/docker-compose.yml}"
+}
+
+# Validate compose file
+validate_compose_file() {
+  local compose_file="$(get_compose_file)"
+  
+  if ! file_exists "$compose_file"; then
+    error "Compose file not found: $compose_file"
+  fi
+  
+  # Check if docker-compose or docker compose is available
+  if ! command_exists docker-compose && ! command_exists docker compose; then
+    error "Neither 'docker-compose' nor 'docker compose' command found"
+  fi
+  
+  # Validate compose file syntax
+  if command_exists docker-compose; then
+    docker-compose -f "$compose_file" config -q || error "Invalid compose file: $compose_file"
+  else
+    docker compose -f "$compose_file" config -q || error "Invalid compose file: $compose_file"
+  fi
+}
+
+# Main entry point
+main() {
+  # Ensure dokku is available
+  if ! command_exists dokku; then
+    error "Dokku is not installed or not in PATH"
+  fi
+  
+  # Check dokku version
+  check_dokku_version "0.30.0"
+  
+  # Parse arguments
+  parse_args "$@"
+  
+  # Execute command
+  case "$COMMAND" in
+    help|--help|-h)
+      show_help
+      ;;
+    version|--version|-v)
+      show_version
+      ;;
+    import)
+      validate_compose_file
+      import_compose_file
+      ;;
+    *)
+      error "Unknown command: $COMMAND"
+      ;;
+  esac
+}
+
+# Import compose file (stub for now)
+import_compose_file() {
+  local compose_file="$(get_compose_file)"
+  info "Importing compose file: $compose_file"
+  
+  if [[ -n "$DRY_RUN" ]]; then
+    info "Dry run: Would import $compose_file"
+    return 0
+  fi
+  
+  # Actual import logic will be implemented here
+  info "Import functionality coming soon!"
+}
+
+# Show help
+show_help() {
+  cat <<EOF
+Usage: dokku docker-compose:COMMAND [options]
+
+Manage Docker Compose deployments in Dokku.
+
+Commands:
+  import [path]    Import a docker-compose.yml file
+  help             Show this help message
+  version          Show version information
+
+Options:
+  -f, --file FILE    Specify an alternate compose file (default: docker-compose.yml)
+  -p, --project NAME Specify an alternate project name (default: directory name)
+      --dry-run      Show what would be created without making changes
+  -v, --verbose      Increase verbosity
+  -q, --quiet        Suppress output
+
+Examples:
+  # Import default docker-compose.yml in current directory
+  dokku docker-compose:import
+
+  # Import specific compose file
+  dokku docker-compose:import -f docker-compose.prod.yml
+
+  # Dry run to see what would be created
+  dokku docker-compose:import --dry-run
+EOF
+}
+
+# Show version
+show_version() {
+  local version_file="$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/VERSION"
+  local version="$(cat "$version_file" 2>/dev/null || echo 'unknown')"
+  echo "dokku-docker-compose $version"
+}
+
+# Run main function if this file is executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi

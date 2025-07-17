@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Commands for the docker-compose plugin
+
+set -eo pipefail
+[[ $DOKKU_TRACE ]] && set -x
+
+# Import common functions
+source "$(dirname "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")/functions"
+
+# Show help if no arguments are provided
+if [[ $# -eq 0 ]]; then
+  cat <<EOF
+Usage: dokku docker-compose:COMMAND
+
+Import docker-compose.yml files into Dokku.
+
+Additional commands:
+dokku docker-compose:help      Print this help message
+dokku docker-compose:version   Show version information
+EOF
+  exit 0
+fi
+
+# Parse command line arguments
+case "$1" in
+  help|--help|-h)
+    cat <<EOF
+Usage: dokku docker-compose:COMMAND
+
+Manage Docker Compose deployments in Dokku.
+
+Commands:
+  dokku docker-compose:import [path]  Import a docker-compose.yml file
+  dokku docker-compose:help           Show this help message
+  dokku docker-compose:version        Show version information
+
+Options:
+  --file, -f    Specify an alternate compose file (default: docker-compose.yml)
+  --project, -p Specify an alternate project name (default: directory name)
+  --dry-run     Show what would be created without making changes
+  --verbose, -v Increase verbosity
+
+Examples:
+  # Import default docker-compose.yml in current directory
+  dokku docker-compose:import
+
+  # Import specific compose file
+  dokku docker-compose:import -f docker-compose.prod.yml
+
+  # Dry run to see what would be created
+  dokku docker-compose:import --dry-run
+EOF
+    ;;
+
+  version|--version|-v)
+    echo "dokku-docker-compose version $(cat "$(dirname "$0")/../VERSION" 2>/dev/null || echo 'unknown')"
+    ;;
+
+  import|--import)
+    shift
+    # Import logic will be implemented in the import command
+    echo "Import functionality coming soon!"
+    ;;
+
+  *)
+    echo "Unknown command: $1"
+    exit 1
+    ;;
+esac
+
+exit 0
