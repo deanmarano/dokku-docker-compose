@@ -1,10 +1,9 @@
 #!/usr/bin/env bats
 
 # Load BATS helper libraries
-export BATS_LIB_PATH="/tmp/bats-helpers"
-load "$BATS_LIB_PATH/bats-support/load.bash"
-load "$BATS_LIB_PATH/bats-assert/load.bash"
-load "$BATS_LIB_PATH/bats-file/load.bash"
+load 'test_helper/bats-support/load'
+load 'test_helper/bats-assert/load'
+load 'test_helper/bats-file/load'
 
 # Simple test for parse_volume function
 @test "parse_volume should parse volume string correctly" {

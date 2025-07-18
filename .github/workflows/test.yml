@@ -25,7 +25,11 @@ jobs:
           --health-retries 5
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout code with submodules
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        submodules: 'recursive'
     
     - name: Install dependencies
       run: |
@@ -38,27 +42,12 @@ jobs:
           sudo ./bats-core/install.sh /usr/local
         fi
         
-        # Install bats-support and bats-assert in a local directory
-        BATS_HELPER_PATH="$GITHUB_WORKSPACE/bats-helpers"
-        mkdir -p "$BATS_HELPER_PATH"
-        
-        # Clone bats-support
-        if [ ! -d "$BATS_HELPER_PATH/bats-support" ]; then
-          git clone https://github.com/bats-core/bats-support.git "$BATS_HELPER_PATH/bats-support" --depth 1
+        # Verify BATS helpers are available
+        if [ ! -d "tests/test_helper/bats-support" ] || [ ! -d "tests/test_helper/bats-assert" ] || [ ! -d "tests/test_helper/bats-file" ]; then
+          echo "Error: BATS helper libraries not found in test_helper directory"
+          ls -la tests/test_helper/
+          exit 1
         fi
-        
-        # Clone bats-assert
-        if [ ! -d "$BATS_HELPER_PATH/bats-assert" ]; then
-          git clone https://github.com/bats-core/bats-assert.git "$BATS_HELPER_PATH/bats-assert" --depth 1
-        fi
-        
-        # Clone bats-file
-        if [ ! -d "$BATS_HELPER_PATH/bats-file" ]; then
-          git clone https://github.com/bats-core/bats-file.git "$BATS_HELPER_PATH/bats-file" --depth 1
-        fi
-        
-        # Export the path for use in tests
-        echo "BATS_LIB_PATH=$BATS_HELPER_PATH" >> $GITHUB_ENV
         
     - name: Set up SSH
       run: |
