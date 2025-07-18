@@ -39,12 +39,20 @@
 - [x] Implement fallback to container when plugin is not available
 - [x] Update CI to use Node.js 20 LTS
 - [ ] Map Docker Compose config to Dokku plugin config
+- [ ] Add support for custom plugin repositories
+- [ ] Implement plugin version compatibility checks
+- [ ] Add configuration validation for required plugin options
+- [ ] Document plugin-specific environment variables
 
 ### 2.4 Dokku App Creation
 - [ ] Create function to generate valid Dokku app names
 - [ ] Implement basic app creation
 - [ ] Add error handling for existing apps
 - [ ] Implement dry-run mode
+- [ ] Add app name validation
+- [ ] Handle subdomain configuration
+- [ ] Support for custom domains
+- [ ] Implement app scaling configuration
 
 ## Phase 3: Service Configuration
 
@@ -54,20 +62,32 @@
 - [ ] Configure resource limits for plugin services
 - [ ] Set up backup policies for data services
 - [ ] Implement plugin service health checks
+- [ ] Add support for plugin-specific environment variables
+- [ ] Implement health check configuration
+- [ ] Add backup scheduling options
+- [ ] Support for plugin-specific resource limits
 
 ### 3.2 Basic Container Service Configuration
 - [ ] Map service images to Dokku apps
 - [ ] Handle environment variables
 - [ ] Configure container resources (CPU, memory)
 - [ ] Set up build context for Dockerfile builds
+- [ ] Add support for container health checks
+- [ ] Implement container restart policies
+- [ ] Support for container labels and annotations
+- [ ] Add support for container security options
 
 ### 3.3 Networking
 - [ ] Create and configure Dokku networks
 - [ ] Map container ports
 - [ ] Handle service links and depends_on
 - [ ] Configure DNS settings
+- [ ] Support for custom network drivers
+- [ ] Implement network aliases
+- [ ] Add support for network-level encryption
+- [ ] Document DNS configuration options
 
-### 3.3 Storage
+### 3.4 Storage
 - [ ] Create and map volumes
 - [ ] Handle bind mounts
 - [ ] Configure volume permissions
@@ -79,11 +99,19 @@
 - [ ] Support for database extensions
 - [ ] Implement backup/restore functionality
 - [ ] Support for read replicas
+- [ ] Handle database version specifications
+- [ ] Support for database tuning parameters
+- [ ] Implement database user management
+- [ ] Add support for database clustering
 
 ### 4.2 Cache Plugins
 - [ ] Configure memory limits
 - [ ] Set up eviction policies
 - [ ] Implement persistence options
+- [ ] Support for cache clustering
+- [ ] Implement cache warming
+- [ ] Add monitoring integration
+- [ ] Support for cache invalidation strategies
 
 ## Recent Improvements (July 2024)
 - [x] Simplified deployment test with Nginx container
@@ -94,11 +122,15 @@
 
 ## Phase 5: Advanced Features
 
-### 4.1 Build System
+### 5.1 Build System
 - [ ] Support Dockerfile builds
 - [ ] Handle build arguments
 - [ ] Support multi-stage builds
 - [ ] Implement build caching
+- [ ] Support for build secrets
+- [ ] Implement build context exclusion patterns
+- [ ] Add support for build-time variables
+- [ ] Document build caching strategies
 
 ### 4.2 Health Checks
 - [ ] Convert Docker healthchecks to Dokku checks
@@ -117,6 +149,10 @@
 - [ ] Integration tests with sample compose files
 - [ ] Test error conditions
 - [ ] Performance testing
+- [ ] Add end-to-end test suite
+- [ ] Implement test coverage reporting
+- [ ] Add performance benchmarks
+- [ ] Document test environment setup
 
 ### 6.2 Documentation
 - [ ] Complete CLI documentation
@@ -135,6 +171,10 @@
 - [ ] Secure handling of sensitive data
 - [ ] Input sanitization
 - [ ] Permission checks
+- [ ] Implement secrets management
+- [ ] Add support for read-only filesystems
+- [ ] Document security best practices
+- [ ] Add security scanning integration
 
 ### 7.3 Performance
 - [ ] Optimize for large compose files
@@ -142,6 +182,12 @@
 - [ ] Implement progress indicators
 
 ## Phase 8: Future Enhancements (Post-MVP)
+
+### 8.4 Documentation
+- [ ] Create comprehensive API documentation
+- [ ] Add architecture diagrams
+- [ ] Document common use cases
+- [ ] Create video tutorials
 
 ### 8.1 Export Functionality
 - [ ] Export Dokku apps to compose format
@@ -155,6 +201,10 @@
 - [ ] GitHub Actions workflow
 - [ ] Automated testing
 - [ ] Release automation
+- [ ] Add automated dependency updates
+- [ ] Implement release notes generation
+- [ ] Add version bump automation
+- [ ] Document release process
 
 ## Getting Started
 
