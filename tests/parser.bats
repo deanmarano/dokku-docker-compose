@@ -53,21 +53,17 @@ load 'test_helper'
   [[ "${lines[*]}" == *"/container/path"* ]]
   [[ "${lines[*]}" == *"rw"* ]]
   
-  # Test with empty string - debug output
+  # Test with empty string - handle different line endings
   run parse_volume ""
-  echo "DEBUG: Status: $status"
-  echo "DEBUG: Output: '$output'"
-  echo "DEBUG: Number of lines: ${#lines[@]}"
-  for i in "${!lines[@]}"; do
-    echo "DEBUG: Line $i: '${lines[$i]}'"
-  done
-  echo "DEBUG: Full output with hexdump:"
-  echo -n "$output" | hexdump -C
-  
   assert_success
+  
+  # Normalize the output by trimming whitespace and newlines
+  normalized_output=$(echo "$output" | tr -d '\r' | tr -s '\n' | sed '/^[[:space:]]*$/d')
+  
   # Check if the output contains 'rw' anywhere
-  if [[ "$output" != *"rw"* ]]; then
+  if [[ "$normalized_output" != *"rw"* ]]; then
     echo "ERROR: Output does not contain 'rw'"
+    echo "Normalized output: '$normalized_output'"
     false
   fi
   
