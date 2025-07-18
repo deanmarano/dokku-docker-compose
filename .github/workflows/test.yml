@@ -42,9 +42,27 @@ jobs:
           sudo ./bats-core/install.sh /usr/local
         fi
         
-        # Verify BATS helpers are available
+        # Install BATS helpers
+        mkdir -p tests/test_helper
+        
+        # Install bats-support
+        if [ ! -d "tests/test_helper/bats-support" ]; then
+          git clone --depth 1 https://github.com/bats-core/bats-support.git tests/test_helper/bats-support
+        fi
+        
+        # Install bats-assert
+        if [ ! -d "tests/test_helper/bats-assert" ]; then
+          git clone --depth 1 https://github.com/bats-core/bats-assert.git tests/test_helper/bats-assert
+        fi
+        
+        # Install bats-file
+        if [ ! -d "tests/test_helper/bats-file" ]; then
+          git clone --depth 1 https://github.com/bats-core/bats-file.git tests/test_helper/bats-file
+        fi
+        
+        # Verify BATS helpers were installed
         if [ ! -d "tests/test_helper/bats-support" ] || [ ! -d "tests/test_helper/bats-assert" ] || [ ! -d "tests/test_helper/bats-file" ]; then
-          echo "Error: BATS helper libraries not found in test_helper directory"
+          echo "Error: Failed to install BATS helper libraries"
           ls -la tests/test_helper/
           exit 1
         fi
