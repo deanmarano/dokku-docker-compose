@@ -9,18 +9,15 @@ jobs:
     services:
       dokku:
         image: dokku/dokku:latest
-        privileged: true
         ports:
           - "2222:22"
           - "8080:80"
           - "8443:443"
         env:
           DOKKU_HOST: localhost
-          DOKKU_HOST_ROOT: /mnt/dokku
           DOKKU_SKIP_APP_WEB_CONFIG: 1
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
-          - /lib/modules:/lib/modules:ro
         options: >-
           --health-cmd "nc -z localhost 22"
           --health-interval 10s
