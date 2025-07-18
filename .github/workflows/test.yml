@@ -38,17 +38,19 @@ jobs:
           sudo ./bats-core/install.sh /usr/local
         fi
         
-        # Install bats-support and bats-assert
+        # Install bats-support and bats-assert in the test directory
         mkdir -p tests/test_helper
-        if [ ! -d "tests/test_helper/bats-support" ]; then
-          git clone https://github.com/bats-core/bats-support.git tests/test_helper/bats-support --depth 1
+        cd tests/test_helper
+        if [ ! -d "bats-support" ]; then
+          git clone https://github.com/bats-core/bats-support.git --depth 1
         fi
-        if [ ! -d "tests/test_helper/bats-assert" ]; then
-          git clone https://github.com/bats-core/bats-assert.git tests/test_helper/bats-assert --depth 1
+        if [ ! -d "bats-assert" ]; then
+          git clone https://github.com/bats-core/bats-assert.git --depth 1
         fi
-        if [ ! -d "tests/test_helper/bats-file" ]; then
-          git clone https://github.com/bats-core/bats-file.git tests/test_helper/bats-file --depth 1
+        if [ ! -d "bats-file" ]; then
+          git clone https://github.com/bats-core/bats-file.git --depth 1
         fi
+        cd ../../
         
     - name: Set up SSH
       run: |
