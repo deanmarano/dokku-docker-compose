@@ -38,19 +38,27 @@ jobs:
           sudo ./bats-core/install.sh /usr/local
         fi
         
-        # Install bats-support and bats-assert in the test directory
-        mkdir -p tests/test_helper
-        cd tests/test_helper
-        if [ ! -d "bats-support" ]; then
-          git clone https://github.com/bats-core/bats-support.git --depth 1
+        # Install bats-support and bats-assert in a standard location
+        BATS_HELPER_PATH="/usr/local/lib/bats-helpers"
+        sudo mkdir -p $BATS_HELPER_PATH
+        
+        # Clone and install bats-support
+        if [ ! -d "$BATS_HELPER_PATH/bats-support" ]; then
+          git clone https://github.com/bats-core/bats-support.git /tmp/bats-support --depth 1
+          sudo mv /tmp/bats-support $BATS_HELPER_PATH/
         fi
-        if [ ! -d "bats-assert" ]; then
-          git clone https://github.com/bats-core/bats-assert.git --depth 1
+        
+        # Clone and install bats-assert
+        if [ ! -d "$BATS_HELPER_PATH/bats-assert" ]; then
+          git clone https://github.com/bats-core/bats-assert.git /tmp/bats-assert --depth 1
+          sudo mv /tmp/bats-assert $BATS_HELPER_PATH/
         fi
-        if [ ! -d "bats-file" ]; then
-          git clone https://github.com/bats-core/bats-file.git --depth 1
+        
+        # Clone and install bats-file
+        if [ ! -d "$BATS_HELPER_PATH/bats-file" ]; then
+          git clone https://github.com/bats-core/bats-file.git /tmp/bats-file --depth 1
+          sudo mv /tmp/bats-file $BATS_HELPER_PATH/
         fi
-        cd ../../
         
     - name: Set up SSH
       run: |
