@@ -30,7 +30,25 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y bats
+        sudo apt-get install -y bats git
+        
+        # Clone bats-core if not already present
+        if [ ! -d "bats-core" ]; then
+          git clone https://github.com/bats-core/bats-core.git
+          sudo ./bats-core/install.sh /usr/local
+        fi
+        
+        # Install bats-support and bats-assert
+        mkdir -p tests/test_helper
+        if [ ! -d "tests/test_helper/bats-support" ]; then
+          git clone https://github.com/bats-core/bats-support.git tests/test_helper/bats-support --depth 1
+        fi
+        if [ ! -d "tests/test_helper/bats-assert" ]; then
+          git clone https://github.com/bats-core/bats-assert.git tests/test_helper/bats-assert --depth 1
+        fi
+        if [ ! -d "tests/test_helper/bats-file" ]; then
+          git clone https://github.com/bats-core/bats-file.git tests/test_helper/bats-file --depth 1
+        fi
         
     - name: Set up SSH
       run: |
