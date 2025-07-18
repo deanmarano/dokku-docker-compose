@@ -28,15 +28,17 @@
 - [x] Port mapping
 - [x] Plugin integration for databases v3 compose formats
 - [x] Comprehensive test coverage for parser functions
+- [x] Simplified deployment test with Nginx container
 - [ ] Handle YAML anchors and references
 
 ### 2.3 Dokku Plugin Integration - IN PROGRESS
 - [x] Create service detection system for Dokku plugins
 - [x] Implement plugin installation check
 - [x] Add support for core plugins (postgres, redis, etc.)
+- [x] Basic service linking with plugins
+- [x] Implement fallback to container when plugin is not available
+- [x] Update CI to use Node.js 20 LTS
 - [ ] Map Docker Compose config to Dokku plugin config
-- [ ] Handle service linking with plugins
-- [ ] Implement fallback to container when plugin is not available
 
 ### 2.4 Dokku App Creation
 - [ ] Create function to generate valid Dokku app names
@@ -82,6 +84,13 @@
 - [ ] Configure memory limits
 - [ ] Set up eviction policies
 - [ ] Implement persistence options
+
+## Recent Improvements (July 2024)
+- [x] Simplified deployment test with Nginx container
+- [x] Updated CI to use Node.js 20 LTS
+- [x] Improved test reliability and error handling
+- [x] Added dynamic port allocation for tests
+- [x] Enhanced test cleanup procedures
 
 ## Phase 5: Advanced Features
 
