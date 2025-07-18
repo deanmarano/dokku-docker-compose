@@ -70,10 +70,25 @@ jobs:
         cat ~/.ssh/id_ed25519.pub | ssh-keyscan -p 2222 -t ed25519 localhost > /dev/null 2>&1 || true
         # Wait for Dokku to be ready
         echo "Waiting for Dokku to be ready..."
-        until docker exec dokku ps | grep -q sshd; do sleep 1; done
-        sleep 5
+        # Get the actual container ID
+        CONTAINER_ID=$(docker ps -qf "name=dokku")
+        echo "Dokku container ID: $CONTAINER_ID"
+        
+        # Wait for SSH to be ready
+        until docker exec $CONTAINER_ID ps | grep -q sshd; do 
+          echo "Waiting for SSH to be ready..."
+          sleep 2
+        done
+        
         # Add the key to the dokku user
-        cat ~/.ssh/id_ed25519.pub | ssh -p 2222 -o StrictHostKeyChecking=no dokku@localhost "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys" || true
+        echo "Adding SSH key to dokku user..."
+        docker exec -i $CONTAINER_ID bash -c '
+          mkdir -p /home/dokku/.ssh
+          chmod 700 /home/dokku/.ssh
+          cat >> /home/dokku/.ssh/authorized_keys
+          chmod 600 /home/dokku/.ssh/authorized_keys
+          chown -R dokku:dokku /home/dokku/.ssh
+        ' < ~/.ssh/id_ed25519.pub || true
         
         # Test SSH connection
         echo "Testing SSH connection..."
