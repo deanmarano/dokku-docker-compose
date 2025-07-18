@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 # Load BATS helper libraries
-export BATS_LIB_PATH="/usr/local/lib/bats-helpers"
+export BATS_LIB_PATH="/tmp/bats-helpers"
 load "$BATS_LIB_PATH/bats-support/load.bash"
 load "$BATS_LIB_PATH/bats-assert/load.bash"
 load "$BATS_LIB_PATH/bats-file/load.bash"
