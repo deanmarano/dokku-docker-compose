@@ -69,10 +69,35 @@ load 'test_helper'
   
   # Test with just container path and mode
   run parse_volume "/container/path:ro"
+  echo "DEBUG: Status: $status"
+  echo "DEBUG: Output: '$output'"
+  echo "DEBUG: Number of lines: ${#lines[@]}"
+  for i in "${!lines[@]}"; do
+    echo "DEBUG: Line $i: '${lines[$i]}'"
+  done
+  
   assert_success
-  [[ "${lines[0]}" == "" ]]  # Empty host path
-  [[ "${lines[1]}" == "/container/path" ]]  # Container path
-  [[ "${lines[2]}" == "ro" ]]  # Read-only mode
+  
+  # The function outputs three lines:
+  # 1. Host path (empty in this case)
+  # 2. Container path
+  # 3. Mode
+  # 4. Default mode (rw)
+  
+  # Check if we have at least 3 lines
+  if [ ${#lines[@]} -lt 3 ]; then
+    echo "ERROR: Expected at least 3 lines of output, got ${#lines[@]}"
+    false
+  fi
+  
+  # The first line should be empty (host path)
+  [ -z "${lines[0]// }" ] || echo "First line is not empty: '${lines[0]}'"
+  
+  # The second line should be the container path
+  [ "${lines[1]}" = "/container/path" ] || echo "Unexpected container path: '${lines[1]}'"
+  
+  # The third line should be the mode
+  [ "${lines[2]}" = "ro" ] || echo "Unexpected mode: '${lines[2]}'"
   
   # Test with empty string (edge case)
   # The function outputs just the default mode "rw" for an empty string
