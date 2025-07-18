@@ -144,8 +144,8 @@ jobs:
       
     - name: Run deployment tests
       run: |
-        # Install Node.js for deployment tests
-        curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+        # Install Node.js 20.x LTS for deployment tests
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
         sudo apt-get install -y nodejs
         
         # Run deployment tests
