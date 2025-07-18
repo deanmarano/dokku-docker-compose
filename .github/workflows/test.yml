@@ -30,7 +30,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y bats ssh netcat-openbsd
+        sudo apt-get install -y bats
         
     - name: Set up SSH
       run: |
@@ -50,7 +50,7 @@ jobs:
         Host dokku-test
           HostName localhost
           Port 2222
-          User dokku
+          User root
           StrictHostKeyChecking no
           UserKnownHostsFile /dev/null
           IdentityFile ~/.ssh/id_ed25519
@@ -80,14 +80,14 @@ jobs:
           sleep 2
         done
         
-        # Add the key to the dokku user
-        echo "Adding SSH key to dokku user..."
+        # Add the key to the root user
+        echo "Adding SSH key to root user..."
         docker exec -i $CONTAINER_ID bash -c '
-          mkdir -p /home/dokku/.ssh
-          chmod 700 /home/dokku/.ssh
-          cat >> /home/dokku/.ssh/authorized_keys
-          chmod 600 /home/dokku/.ssh/authorized_keys
-          chown -R dokku:dokku /home/dokku/.ssh
+          mkdir -p /root/.ssh
+          chmod 700 /root/.ssh
+          cat >> /root/.ssh/authorized_keys
+          chmod 600 /root/.ssh/authorized_keys
+          chown -R root:root /root/.ssh
         ' < ~/.ssh/id_ed25519.pub || true
         
         # Test SSH connection
