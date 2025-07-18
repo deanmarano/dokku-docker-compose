@@ -34,18 +34,16 @@ jobs:
         
     - name: Set up SSH
       run: |
+        # Create .ssh directory
         mkdir -p ~/.ssh
-        ssh-keyscan -p 2222 -t rsa localhost >> ~/.ssh/known_hosts
-        chmod 600 ~/.ssh/known_hosts
+        chmod 700 ~/.ssh
         
-        # Generate SSH key
-        ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
-        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-        chmod 600 ~/.ssh/*
+        # Generate SSH key without passphrase
+        ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "github-actions@dokku-test"
         
-        # Configure SSH
+        # Add to SSH agent
         eval "$(ssh-agent -s)"
-        ssh-add ~/.ssh/id_rsa
+        ssh-add ~/.ssh/id_ed25519
         
         # Create SSH config
         cat > ~/.ssh/config << 'EOL'
@@ -55,8 +53,26 @@ jobs:
           User root
           StrictHostKeyChecking no
           UserKnownHostsFile /dev/null
-          IdentityFile ~/.ssh/id_rsa
+          IdentityFile ~/.ssh/id_ed25519
+          IdentitiesOnly yes
         EOL
+        
+        # Set permissions
+        chmod 600 ~/.ssh/config
+        chmod 600 ~/.ssh/id_ed25519*
+        
+        # Add public key to Dokku container
+        echo "Waiting for Dokku SSH to be ready..."
+        until nc -z localhost 2222; do sleep 1; done
+        sleep 5  # Give it a moment to fully start
+        
+        # Install the public key in the Dokku container
+        cat ~/.ssh/id_ed25519.pub | ssh-keyscan -p 2222 -t ed25519 localhost > /dev/null 2>&1 || true
+        cat ~/.ssh/id_ed25519.pub | ssh -p 2222 -o StrictHostKeyChecking=no root@localhost "mkdir -p /root/.ssh && cat >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys" || true
+        
+        # Test SSH connection
+        echo "Testing SSH connection..."
+        ssh -T dokku-test "echo 'SSH connection successful!'" || echo "SSH test failed, but continuing..."
         
     - name: Install Dokku plugins
       run: |
