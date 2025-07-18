@@ -50,7 +50,7 @@ jobs:
         Host dokku-test
           HostName localhost
           Port 2222
-          User root
+          User dokku
           StrictHostKeyChecking no
           UserKnownHostsFile /dev/null
           IdentityFile ~/.ssh/id_ed25519
@@ -68,7 +68,12 @@ jobs:
         
         # Install the public key in the Dokku container
         cat ~/.ssh/id_ed25519.pub | ssh-keyscan -p 2222 -t ed25519 localhost > /dev/null 2>&1 || true
-        cat ~/.ssh/id_ed25519.pub | ssh -p 2222 -o StrictHostKeyChecking=no root@localhost "mkdir -p /root/.ssh && cat >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys" || true
+        # Wait for Dokku to be ready
+        echo "Waiting for Dokku to be ready..."
+        until docker exec dokku ps | grep -q sshd; do sleep 1; done
+        sleep 5
+        # Add the key to the dokku user
+        cat ~/.ssh/id_ed25519.pub | ssh -p 2222 -o StrictHostKeyChecking=no dokku@localhost "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys" || true
         
         # Test SSH connection
         echo "Testing SSH connection..."
