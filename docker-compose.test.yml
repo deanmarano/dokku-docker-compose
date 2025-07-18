@@ -1,0 +1,22 @@
+version: '3'
+services:
+  dokku:
+    image: dokku/dokku:latest
+    container_name: dokku
+    hostname: dokku
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - dokku:/mnt/dokku
+      - /lib/modules:/lib/modules:ro
+    ports:
+      - "2222:22"
+      - "8080:80"
+      - "8443:443"
+    environment:
+      - DOKKU_HOST=localhost
+      - DOKKU_HOST_ROOT=/mnt/dokku
+      - DOKKU_SKIP_APP_WEB_CONFIG=1
+
+volumes:
+  dokku:

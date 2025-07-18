@@ -15,6 +15,16 @@ PLUGIN_LOG_FILE="$PLUGIN_DATA_ROOT/logs/plugin.log"
 # Import common functions
 source "$PLUGIN_PATH/functions/core"
 
+# Import parser functions
+source "$PLUGIN_PATH/functions/parser"
+
+# Default values
+COMPOSE_FILE="docker-compose.yml"
+PROJECT_NAME="${PWD##*/}"
+DRY_RUN=false
+VERBOSE=false
+QUIET=false
+
 # Initialize plugin if needed
 initialize_plugin() {
   # Create required directories if they don't exist
@@ -37,11 +47,32 @@ initialize_plugin() {
   
   # Load configuration
   source "$PLUGIN_CONFIG_FILE"
+  
+  # Set log level from config
+  case "${DOKKU_DOCKER_COMPOSE_LOG_LEVEL}" in
+    debug) LOG_LEVEL=0 ;;
+    info)  LOG_LEVEL=1 ;;
+    warn)  LOG_LEVEL=2 ;;
+    error) LOG_LEVEL=3 ;;
+    fatal) LOG_LEVEL=4 ;;
+  esac
 }
 
 # Plugin installation
 plugin_install() {
   log_info "Installing $PLUGIN_NAME plugin..."
+  
+  # Check for dependencies
+  if ! command -v yq &> /dev/null; then
+    log_warn "yq is not installed. It's required for parsing YAML files."
+    if [[ -f /etc/os-release ]] && grep -q "debian\|ubuntu" /etc/os-release; then
+      log_info "You can install it with: sudo apt-get install yq"
+    elif [[ -f /etc/redhat-release ]]; then
+      log_info "You can install it with: sudo dnf install yq"
+    else
+      log_info "Please install yq from https://github.com/mikefarah/yq"
+    fi
+  fi
   
   # Create plugin directory structure
   mkdir -p "$PLUGIN_ENABLED_PATH"
@@ -63,6 +94,254 @@ plugin_install() {
   log_success "$PLUGIN_NAME plugin installed successfully"
 }
 
+# Parse command line arguments
+parse_args() {
+  local args=("$@")
+  local i=0
+  
+  while [[ $i -lt ${#args[@]} ]]; do
+    case "${args[$i]}" in
+      -f|--file)
+        ((i++))
+        COMPOSE_FILE="${args[$i]}"
+        ;;
+      -p|--project)
+        ((i++))
+        PROJECT_NAME="${args[$i]}"
+        ;;
+      --dry-run)
+        DRY_RUN=true
+        ;;
+      -v|--verbose)
+        VERBOSE=true
+        set -x
+        ;;
+      -q|--quiet)
+        QUIET=true
+        ;;
+      --)
+        # End of arguments
+        ((i++))
+        break
+        ;;
+      -*)
+        log_fail "Unknown option: ${args[$i]}"
+        show_help
+        exit 1
+        ;;
+      *)
+        # Handle non-flag arguments
+        if [[ -z "$COMMAND" ]]; then
+          COMMAND="${args[$i]}"
+        else
+          log_fail "Unknown argument: ${args[$i]}"
+          show_help
+          exit 1
+        fi
+        ;;
+    esac
+    ((i++))
+  done
+}
+
+# Import a Docker Compose file
+import_compose_file() {
+  log_info "Importing Docker Compose file: $COMPOSE_FILE"
+  
+  # Check if yq is installed
+  if ! command -v yq &> /dev/null; then
+    log_fail "yq is required but not installed. Please install yq (https://github.com/mikefarah/yq) and try again."
+  fi
+  
+  # Validate compose file
+  log_debug "Validating compose file: $COMPOSE_FILE"
+  local version
+  version=$(validate_compose_file "$COMPOSE_FILE")
+  log_info "Using Docker Compose file version: $version"
+  
+  # Get all services
+  log_debug "Discovering services..."
+  local services=()
+  while IFS= read -r service; do
+    services+=("$service")
+    log_debug "Found service: $service"
+  done < <(get_services "$COMPOSE_FILE")
+  
+  if [[ ${#services[@]} -eq 0 ]]; then
+    log_fail "No services found in $COMPOSE_FILE"
+  fi
+  
+  log_info "Found ${#services[@]} service(s)"
+  
+  # Process services in dependency order
+  log_debug "Determining service dependencies..."
+  local sorted_services=()
+  while IFS= read -r service; do
+    sorted_services+=("$service")
+  done < <(get_sorted_services "$COMPOSE_FILE")
+  
+  log_info "Processing services in order: ${sorted_services[*]}"
+  
+  # Process each service
+  for service in "${sorted_services[@]}"; do
+    log_info "Processing service: $service"
+    
+    # Get service configuration
+    local image
+    image=$(get_service_image "$COMPOSE_FILE" "$service")
+    log_debug "Service image: $image"
+    
+    # Check if this should use a Dokku plugin
+    local plugin
+    if plugin=$(should_use_dokku_plugin "$image"); then
+      log_info "Service '$service' can be managed by the '$plugin' plugin"
+      
+      # Get the plugin create command
+      local plugin_cmd
+      plugin_cmd=$(get_dokku_plugin_command "$plugin")
+      
+      if [[ -n "$plugin_cmd" ]]; then
+        local app_name
+        app_name=$(get_dokku_app_name "$service" "$PROJECT_NAME-")
+        
+        log_info "Creating $plugin service: $app_name"
+        
+        if [[ "$DRY_RUN" == false ]]; then
+          # Create the service using the plugin
+          if dokku "$plugin_cmd" "$app_name"; then
+            log_success "Created $plugin service: $app_name"
+            
+            # Link the service to the app if this is not the main app
+            if [[ "$service" != "web" && "$service" != "app" ]]; then
+              log_info "Linking $plugin service to app"
+              # This would be implemented based on the specific plugin
+              # dokku "$plugin:link" "$app_name" "$PROJECT_NAME"
+            fi
+          else
+            log_error "Failed to create $plugin service: $app_name"
+          fi
+        else
+          log_info "[DRY RUN] Would create $plugin service: $app_name"
+        fi
+      else
+        log_warn "No create command found for plugin: $plugin"
+      fi
+    else
+      # This is a regular app that needs to be deployed
+      log_info "Service '$service' will be deployed as a Dokku app"
+      
+      local app_name
+      app_name=$(get_dokku_app_name "$service" "$PROJECT_NAME-")
+      
+      log_info "Creating app: $app_name"
+      
+      if [[ "$DRY_RUN" == false ]]; then
+        # Create the app
+        if dokku apps:exists "$app_name" &> /dev/null; then
+          log_info "App already exists: $app_name"
+        else
+          if dokku apps:create "$app_name"; then
+            log_success "Created app: $app_name"
+          else
+            log_error "Failed to create app: $app_name"
+            continue
+          fi
+        fi
+        
+        # Set environment variables
+        local env_vars=()
+        while IFS= read -r env_var; do
+          if [[ -n "$env_var" ]]; then
+            env_vars+=("$env_var")
+          fi
+        done < <(get_service_environment "$COMPOSE_FILE" "$service")
+        
+        if [[ ${#env_vars[@]} -gt 0 ]]; then
+          log_info "Setting ${#env_vars[@]} environment variables"
+          for env_var in "${env_vars[@]}"; do
+            log_debug "Setting config: $env_var"
+            dokku config:set --no-restart "$app_name" "$env_var"
+          done
+        fi
+        
+        # Set up volumes
+        local volumes=()
+        while IFS= read -r volume; do
+          if [[ -n "$volume" ]]; then
+            volumes+=("$volume")
+          fi
+        done < <(get_service_volumes "$COMPOSE_FILE" "$service")
+        
+        if [[ ${#volumes[@]} -gt 0 ]]; then
+          log_info "Configuring ${#volumes[@]} volumes"
+          for volume in "${volumes[@]}"; do
+            log_debug "Processing volume: $volume"
+            # Parse volume components
+            local host_path container_path mode
+            read -r host_path container_path mode < <(parse_volume "$volume")
+            
+            if [[ -n "$host_path" && "$host_path" != *"/"* ]]; then
+              # Named volume
+              log_debug "Creating named volume: $host_path"
+              dokku storage:ensure-directory "$host_path"
+              dokku storage:mount "$app_name" "/var/lib/dokku/data/storage/$host_path:$container_path:$mode"
+            elif [[ -n "$host_path" ]]; then
+              # Host path
+              log_debug "Mounting host path: $host_path"
+              dokku storage:mount "$app_name" "$host_path:$container_path:$mode"
+            else
+              # Anonymous volume
+              log_debug "Creating anonymous volume for: $container_path"
+              local volume_name="${app_name}-$(echo "$container_path" | tr -cd '[:alnum:]' | tr '[:upper:]' '[:lower:]')"
+              dokku storage:ensure-directory "$volume_name"
+              dokku storage:mount "$app_name" "/var/lib/dokku/data/storage/$volume_name:$container_path:$mode"
+            fi
+          done
+        fi
+        
+        # Set up ports
+        local ports=()
+        while IFS= read -r port; do
+          if [[ -n "$port" ]]; then
+            ports+=("$port")
+          fi
+        done < <(get_service_ports "$COMPOSE_FILE" "$service")
+        
+        if [[ ${#ports[@]} -gt 0 ]]; then
+          log_info "Configuring ${#ports[@]} ports"
+          for port in "${ports[@]}"; do
+            log_debug "Processing port: $port"
+            # Parse port mapping (host:container)
+            local host_port container_port
+            IFS=':' read -r host_port container_port <<< "$port"
+            
+            if [[ -n "$host_port" && -n "$container_port" ]]; then
+              # Remove protocol if present
+              container_port="${container_port%%/*}"
+              
+              log_debug "Mapping port $host_port to $container_port"
+              dokku proxy:ports-set "$app_name" "http:${host_port}:${container_port}"
+            fi
+          done
+        fi
+        
+        # Deploy the app
+        log_info "Deploying app: $app_name"
+        # This would be implemented with the actual deployment logic
+        # dokku git:from-image $app_name $image
+      else
+        log_info "[DRY RUN] Would create app: $app_name"
+        log_info "[DRY RUN] Would set ${#env_vars[@]} environment variables"
+        log_info "[DRY RUN] Would configure ${#volumes[@]} volumes"
+        log_info "[DRY RUN] Would configure ${#ports[@]} ports"
+        log_info "[DRY RUN] Would deploy app with image: $image"
+      fi
+    fi
+  done
+  
+  log_success "Successfully imported $COMPOSE_FILE"
+}
+
 # Show help if no arguments are provided
 if [[ $# -eq 0 ]]; then
   show_help
@@ -73,7 +352,10 @@ fi
 initialize_plugin
 
 # Parse command line arguments
-case "$1" in
+parse_args "$@"
+
+# Execute the command
+case "$COMMAND" in
   help|--help|-h)
     show_help
     ;;
@@ -82,10 +364,9 @@ case "$1" in
     show_version
     ;;
     
-  import|--import)
+  import)
     shift
-    # Import logic will be implemented in the import command
-    log_info "Import functionality coming soon!"
+    import_compose_file
     ;;
     
   # Plugin management commands
@@ -100,7 +381,7 @@ case "$1" in
     ;;
     
   *)
-    log_fail "Unknown command: $1"
+    log_fail "Unknown command: ${COMMAND:-}"
     show_help
     exit 1
     ;;

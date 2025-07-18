@@ -122,26 +122,26 @@ save_config() {
   chmod 600 "$PLUGIN_CONFIG_FILE"
 }
 
-# Show help message
+# Show help
 show_help() {
   cat <<EOF
-Usage: dokku docker-compose:COMMAND [options]
+Usage: dokku docker-compose:COMMAND [OPTIONS] [ARGS]...
 
-Manage Docker Compose deployments in Dokku.
+Manage Docker Compose deployments in Dokku
 
 Commands:
-  import [path]    Import a docker-compose.yml file
-  help             Show this help message
-  version          Show version information
-  plugin:install   Install the plugin
-  plugin:uninstall Uninstall the plugin
+  help, --help, -h    Show this help message
+  version, --version  Show version information
+  import              Import a Docker Compose file
+  plugin:install      Install the plugin
+  plugin:uninstall    Uninstall the plugin
 
-Options:
-  -f, --file FILE    Specify an alternate compose file (default: docker-compose.yml)
-  -p, --project NAME Specify an alternate project name (default: directory name)
-      --dry-run      Show what would be created without making changes
-  -v, --verbose      Increase verbosity
-  -q, --quiet        Suppress output
+Import Options:
+  -f, --file FILE     Specify an alternate compose file (default: docker-compose.yml)
+  -p, --project NAME  Specify an alternate project name (default: directory name)
+  --dry-run           Show what would be done without making any changes
+  -v, --verbose       Show more detailed output
+  -q, --quiet         Suppress output
 
 Examples:
   # Import default docker-compose.yml in current directory

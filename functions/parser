@@ -1,0 +1,303 @@
+#!/usr/bin/env bash
+# Docker Compose parser functions
+
+# Check if yq is installed
+check_yq() {
+  if ! command -v yq &> /dev/null; then
+    log_fail "yq is required but not installed. Please install yq (https://github.com/mikefarah/yq) and try again."
+  fi
+}
+
+# Validate Docker Compose file
+validate_compose_file() {
+  local file="${1:?file must be provided}"
+  
+  if [[ ! -f "$file" ]]; then
+    log_fail "Compose file not found: $file"
+  fi
+  
+  if ! yq eval 'true' "$file" &> /dev/null; then
+    log_fail "Invalid YAML in compose file: $file"
+  fi
+  
+  local version
+  version=$(yq eval '.version // ""' "$file")
+  
+  if [[ -z "$version" ]]; then
+    log_warn "No version specified in compose file, assuming version 3"
+    version="3"
+  fi
+  
+  # Check if version is supported
+  if [[ ! "$version" =~ ^[23](\.\d+)?$ ]]; then
+    log_fail "Unsupported Compose file version: $version. Only versions 2.x and 3.x are supported."
+  fi
+  
+  log_debug "Validated Compose file $file (version $version)"
+  echo "$version"
+}
+
+# Get all services from compose file
+get_services() {
+  local file="${1:?file must be provided}"
+  yq eval '.services | keys | .[]' "$file"
+}
+
+# Get service configuration
+get_service_config() {
+  local file="${1:?file must be provided}"
+  local service="${2:?service must be provided}"
+  
+  yq eval ".services.$service" "$file"
+}
+
+# Get service image
+get_service_image() {
+  local file="${1:?file must be provided}"
+  local service="${2:?service must be provided}"
+  
+  yq eval ".services.$service.image" "$file"
+}
+
+# Get service ports
+get_service_ports() {
+  local file="${1:?file must be provided}"
+  local service="${2:?service must be provided}"
+  
+  yq eval ".services.$service.ports[]?" "$file" 2>/dev/null || true
+}
+
+# Get service environment variables
+get_service_environment() {
+  local file="${1:?file must be provided}"
+  local service="${2:?service must be provided}"
+  
+  # Handle both array and map formats for environment
+  if yq eval ".services.$service.environment | type" "$file" 2>/dev/null | grep -q '!!map'; then
+    # Map format (KEY: VALUE)
+    yq eval ".services.$service.environment | to_entries | .[] | \"\(.key)=\(.value | tostring)\"" "$file"
+  else
+    # Array format (KEY=VALUE)
+    yq eval ".services.$service.environment[]?" "$file" 2>/dev/null || true
+  fi
+}
+
+# Get service volumes
+get_service_volumes() {
+  local file="${1:?file must be provided}"
+  local service="${2:?service must be provided}"
+  
+  yq eval ".services.$service.volumes[]?" "$file" 2>/dev/null || true
+}
+
+# Get service networks
+get_service_networks() {
+  local file="${1:?file must be provided}"
+  local service="${2:?service must be provided}"
+  
+  yq eval ".services.$service.networks[]?" "$file" 2>/dev/null || true
+}
+
+# Get service depends_on
+get_service_depends_on() {
+  local file="${1:?file must be provided}"
+  local service="${2:?service must be provided}"
+  
+  # Handle both array and map formats for depends_on
+  if yq eval ".services.$service.depends_on | type" "$file" 2>/dev/null | grep -q '!!map'; then
+    # Map format (service: condition)
+    yq eval ".services.$service.depends_on | keys | .[]" "$file" 2>/dev/null || true
+  else
+    # Array format (service names)
+    yq eval ".services.$service.depends_on[]?" "$file" 2>/dev/null || true
+  fi
+}
+
+# Get all networks from compose file
+get_networks() {
+  local file="${1:?file must be provided}"
+  yq eval '.networks | keys | .[]' "$file" 2>/dev/null || true
+}
+
+# Get network configuration
+get_network_config() {
+  local file="${1:?file must be provided}"
+  local network="${2:?network must be provided}"
+  
+  yq eval ".networks.$network" "$file"
+}
+
+# Get all volumes from compose file
+get_volumes() {
+  local file="${1:?file must be provided}"
+  yq eval '.volumes | keys | .[]' "$file" 2>/dev/null || true
+}
+
+# Get volume configuration
+get_volume_config() {
+  local file="${1:?file must be provided}"
+  local volume="${2:?volume must be provided}"
+  
+  yq eval ".volumes.$volume" "$file"
+}
+
+# Parse a volume string into its components
+# Format: [host:]container[:mode]
+parse_volume() {
+  local volume="${1:?volume must be provided}"
+  
+  if [[ "$volume" == *:*:* ]]; then
+    # Format: host:container:mode
+    IFS=':' read -r host_path container_path mode <<< "$volume"
+  elif [[ "$volume" == *:* ]]; then
+    # Format: host:container
+    IFS=':' read -r host_path container_path <<< "$volume"
+    mode="rw"
+  else
+    # Format: container
+    container_path="$volume"
+    host_path=""
+    mode="rw"
+  fi
+  
+  # Remove any quotes that might be present
+  host_path=${host_path//\"/}
+  container_path=${container_path//\"/}
+  mode=${mode//\"/}
+  
+  echo "$host_path"
+  echo "$container_path"
+  echo "$mode"
+}
+
+# Build a dependency graph for services
+build_dependency_graph() {
+  local file="${1:?file must be provided}"
+  declare -A deps
+  
+  while IFS= read -r service; do
+    local service_deps=()
+    while IFS= read -r dep; do
+      service_deps+=("$dep")
+    done < <(get_service_depends_on "$file" "$service")
+    
+    if [[ ${#service_deps[@]} -gt 0 ]]; then
+      deps["$service"]="${service_deps[*]}"
+    fi
+  done < <(get_services "$file")
+  
+  declare -p deps
+}
+
+# Get a topological sort of services based on dependencies
+get_sorted_services() {
+  local file="${1:?file must be provided}"
+  
+  # Use tsort to get a topological sort
+  declare -A visited
+  declare -a sorted
+  
+  while IFS= read -r service; do
+    if [[ -z "${visited[$service]}" ]]; then
+      _visit "$service" "$file"
+    fi
+  done < <(get_services "$file")
+  
+  # Reverse the order to get dependencies first
+  for ((i=${#sorted[@]}-1; i>=0; i--)); do
+    echo "${sorted[$i]}"
+  done
+}
+
+# Helper function for topological sort
+_visit() {
+  local service="$1"
+  local file="$2"
+  
+  if [[ "${visited[$service]}" == "visiting" ]]; then
+    log_fail "Circular dependency detected involving service: $service"
+  fi
+  
+  if [[ -z "${visited[$service]}" ]]; then
+    visited["$service"]="visiting"
+    
+    # Visit all dependencies
+    while IFS= read -r dep; do
+      _visit "$dep" "$file"
+    done < <(get_service_depends_on "$file" "$service")
+    
+    visited["$service"]="visited"
+    sorted+=("$service")
+  fi
+}
+
+# Get the Dokku app name for a service
+get_dokku_app_name() {
+  local service="${1:?service must be provided}"
+  local prefix="${2:-}"
+  local suffix="${3:-}"
+  
+  # Convert service name to valid Dokku app name
+  # - Convert to lowercase
+  # - Replace underscores and dots with hyphens
+  # - Remove any invalid characters
+  local app_name=$(echo "$service" | tr '[:upper:]' '[:lower:]' | tr '_.' '-' | tr -cd '[:alnum:]-')
+  
+  # Apply prefix and suffix if provided
+  echo "${prefix}${app_name}${suffix}"
+}
+
+# Check if a service should be managed by a Dokku plugin
+should_use_dokku_plugin() {
+  local image="${1:?image must be provided}"
+  
+  # List of known database and service images that have Dokku plugins
+  local plugin_images=(
+    "postgres"
+    "mysql"
+    "mariadb"
+    "redis"
+    "memcached"
+    "mongodb"
+    "couchdb"
+    "rabbitmq"
+    "elasticsearch"
+    "kibana"
+    "influxdb"
+    "cassandra"
+    "rethinkdb"
+    "neo4j"
+  )
+  
+  for plugin_image in "${plugin_images[@]}"; do
+    if [[ "$image" == *"$plugin_image"* ]]; then
+      echo "$plugin_image"
+      return 0
+    fi
+  done
+  
+  return 1
+}
+
+# Get the Dokku plugin command for a service
+get_dokku_plugin_command() {
+  local plugin="${1:?plugin must be provided}"
+  
+  case "$plugin" in
+    postgres) echo "postgres:create" ;;
+    mysql) echo "mysql:create" ;;
+    mariadb) echo "mariadb:create" ;;
+    redis) echo "redis:create" ;;
+    memcached) echo "memcached:create" ;;
+    mongodb) echo "mongodb:create" ;;
+    couchdb) echo "couchdb:create" ;;
+    rabbitmq) echo "rabbitmq:create" ;;
+    elasticsearch) echo "elasticsearch:create" ;;
+    kibana) echo "kibana:create" ;;
+    influxdb) echo "influxdb:create" ;;
+    cassandra) echo "cassandra:create" ;;
+    rethinkdb) echo "rethinkdb:create" ;;
+    neo4j) echo "neo4j:create" ;;
+    *) echo "" ;;
+  esac
+}

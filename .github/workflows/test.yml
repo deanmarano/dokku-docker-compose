@@ -1,0 +1,84 @@
+name: Test
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      dokku:
+        image: dokku/dokku:latest
+        privileged: true
+        ports:
+          - "2222:22"
+          - "8080:80"
+          - "8443:443"
+        env:
+          DOKKU_HOST: localhost
+          DOKKU_HOST_ROOT: /mnt/dokku
+          DOKKU_SKIP_APP_WEB_CONFIG: 1
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - /lib/modules:/lib/modules:ro
+        options: >-
+          --health-cmd "nc -z localhost 22"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bats ssh netcat
+        
+    - name: Set up SSH
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan -p 2222 -t rsa localhost >> ~/.ssh/known_hosts
+        chmod 600 ~/.ssh/known_hosts
+        
+        # Generate SSH key
+        ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+        chmod 600 ~/.ssh/*
+        
+        # Configure SSH
+        eval "$(ssh-agent -s)"
+        ssh-add ~/.ssh/id_rsa
+        
+        # Create SSH config
+        cat > ~/.ssh/config << 'EOL'
+        Host dokku-test
+          HostName localhost
+          Port 2222
+          User root
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+          IdentityFile ~/.ssh/id_rsa
+        EOL
+        
+    - name: Install Dokku plugins
+      run: |
+        ssh -T dokku-test "\
+          dokku plugin:install https://github.com/dokku/dokku-postgres.git postgres && \
+          dokku plugin:install https://github.com/dokku/dokku-redis.git redis && \
+          dokku plugin:install https://github.com/dokku/dokku-mysql.git mysql"
+          
+    - name: Run unit tests
+      run: bats tests/parser.bats
+      
+    - name: Run integration tests
+      run: bats tests/integration.bats
+      
+    - name: Run deployment tests
+      run: |
+        # Install Node.js for deployment tests
+        curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+        
+        # Run deployment tests
+        bats tests/deploy.bats

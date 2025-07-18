@@ -18,6 +18,38 @@ vendor/
 ._*
 .Spotlight-V100
 .Trashes
+
+# Test artifacts
+/tmp/
+/plugin/
+
+# Local configuration
+.env
+.env.*
+!.env.example
+
+# Docker
+.docker/
+
+# Test coverage
+coverage/
+
+# Bats test helper (handled as submodule)
+# test_helper/ is intentionally not ignored as it's a submodule
+
+# Local development
+.dokku/
+
+# SSH keys
+*.pem
+*.pem.pub
+
+# Local test data
+/tests/test-apps/**/node_modules/
+/tests/test-apps/**/.git/
+
+# Local test data
+/var/
 ehthumbs.db
 Thumbs.db
 

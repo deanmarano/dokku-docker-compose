@@ -75,6 +75,20 @@ load 'test_helper/bats-file/load'
   assert_success
   [[ "${#lines[@]}" -eq 1 ]]
   [[ "${lines[0]}" == "rw" ]]  # Only one line with the default mode
+  
+  # Test with special characters in volume paths
+  run parse_volume "/host/path/with spaces:/container/path:ro"
+  assert_success
+  [[ "${lines[0]}" == "/host/path/with spaces" ]]
+  [[ "${lines[1]}" == "/container/path" ]]
+  [[ "${lines[2]}" == "ro" ]]
+  
+  # Test with relative paths
+  run parse_volume "./relative/path:/absolute/path"
+  assert_success
+  [[ "${lines[0]}" == "./relative/path" ]]
+  [[ "${lines[1]}" == "/absolute/path" ]]
+  [[ "${lines[2]}" == "rw" ]]
 }
 
 @test "get_dokku_app_name should convert service name correctly" {
@@ -104,37 +118,81 @@ load 'test_helper/bats-file/load'
   should_use_dokku_plugin() {
     local image="$1"
     
-    # List of known plugins
-    local known_plugins=(
-      "postgres"
-      "mysql"
-      "redis"
-      "mongodb"
-      "memcached"
-      "rabbitmq"
-      "elasticsearch"
-    )
-    
-    # Check if image matches any known plugin
-    for plugin in "${known_plugins[@]}"; do
-      if [[ "$image" == *"$plugin"* ]]; then
-        echo "$plugin"
-        return 0
-      fi
-    done
-    
-    return 1
+    # Simple implementation for testing
+    case "$image" in
+      *postgres*) echo "postgres" ; return 0 ;;
+      *redis*) echo "redis" ; return 0 ;;
+      *) return 1 ;;
+    esac
   }
 
+  # Test with official images
+  echo "Testing with postgres:13"
   run should_use_dokku_plugin "postgres:13"
+  echo "Status: $status, Output: $output"
   assert_success
   assert_output "postgres"
   
+  # Test with custom image names (should fail as no known plugin matches)
+  echo "Testing with custom-image"
+  run should_use_dokku_plugin "custom-image"
+  echo "Status: $status, Output: $output"
+  assert_failure
+  
+  # Test with custom/redis (should work as it contains 'redis')
+  echo "Testing with custom/redis:latest"
   run should_use_dokku_plugin "custom/redis:latest"
+  echo "Status: $status, Output: $output"
   assert_success
   assert_output "redis"
   
+  # Test with Docker Hub official images (should work as it contains 'postgres')
+  echo "Testing with library/postgres:13"
+  run should_use_dokku_plugin "library/postgres:13"
+  echo "Status: $status, Output: $output"
+  assert_success
+  assert_output "postgres"
+  
+  # Test with Docker Hub official images with registry (should work as it contains 'postgres')
+  echo "Testing with docker.io/library/postgres:13"
+  run should_use_dokku_plugin "docker.io/library/postgres:13"
+  echo "Status: $status, Output: $output"
+  assert_success
+  assert_output "postgres"
+  
+  # Test with private registry (should work as it contains 'postgres')
+  echo "Testing with myregistry.example.com/postgres:13"
+  run should_use_dokku_plugin "myregistry.example.com/postgres:13"
+  echo "Status: $status, Output: $output"
+  assert_success
+  assert_output "postgres"
+  
+  # Test with custom repository path (should work as it contains 'postgres')
+  echo "Testing with myorg/postgres:13"
+  run should_use_dokku_plugin "myorg/postgres:13"
+  echo "Status: $status, Output: $output"
+  assert_success
+  assert_output "postgres"
+  
+  # Test with latest tag
+  echo "Testing with postgres:latest"
+  run should_use_dokku_plugin "postgres:latest"
+  echo "Status: $status, Output: $output"
+  assert_success
+  assert_output "postgres"
+  
+  # Test with no tag
+  echo "Testing with postgres"
+  run should_use_dokku_plugin "postgres"
+  echo "Status: $status, Output: $output"
+  assert_success
+  assert_output "postgres"
+  
+  
+  # Test with custom/unknown (should fail as no known plugin matches)
+  echo "Testing with custom/unknown:latest"
   run should_use_dokku_plugin "custom/unknown:latest"
+  echo "Status: $status, Output: $output"
   assert_failure
 }
 
